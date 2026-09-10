@@ -45,7 +45,6 @@ func StoreDocument(contents []byte, uploadDirectory string, encryptionKeyring Ke
 	if err := writeDocument(storagePath, storedContents, encrypted); err != nil {
 		return StoredDocument{}, false, err
 	}
-	//return StoredDocument{ContentType: "application/octet-stream", StoragePath: storagePath}, true, nil
 	return StoredDocument{ContentType: contentType, StoragePath: storagePath}, true, nil
 }
 
