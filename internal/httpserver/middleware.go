@@ -9,6 +9,7 @@ import (
 	"math"
 	"net"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -27,6 +28,33 @@ func applyMiddleware(handler http.Handler, middlewareChain ...middleware) http.H
 		handler = currentMiddleware(handler)
 	}
 	return handler
+}
+
+func preventCSRF(trustedOrigin string, renderer *templates.Renderer) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			appOrigin := trustedOrigin
+			if r.Method != http.MethodPost {
+				next.ServeHTTP(rw, r)
+				return
+			}
+			untrustedOrigin := r.Header.Get("Origin")
+			if len(untrustedOrigin) > 0 {
+				if untrustedOrigin != appOrigin {
+					httpx.RespondWithErrorPage(rw, renderer, http.StatusForbidden, "Unhandled Error", fmt.Sprint("Untrusted Origin!"))
+					return
+				}
+			} else {
+				untrustedReferer := r.Header.Get("Referer")
+				extractedOrigin, err := extractOriginFromUrl(untrustedReferer)
+				if nil != err || extractedOrigin != appOrigin {
+					httpx.RespondWithErrorPage(rw, renderer, http.StatusForbidden, "Unhandled Error", fmt.Sprint("Untrusted Origin!"))
+					return
+				}
+			}
+			next.ServeHTTP(rw, r)
+		})
+	}
 }
 
 func noSniffContentTypeHeader(handler http.Handler) http.Handler {
@@ -247,4 +275,15 @@ func boolToInt64(value bool) int64 {
 		return 1
 	}
 	return 0
+}
+
+func extractOriginFromUrl(rawUrl string) (string, error) {
+	urlVal, err := url.Parse(rawUrl)
+	if err != nil {
+		return "", err
+	}
+	if urlVal.Scheme == "" || urlVal.Host == "" {
+		return "", fmt.Errorf("invalid URL for origin extraction")
+	}
+	return fmt.Sprintf("%s://%s", urlVal.Scheme, urlVal.Host), nil
 }
