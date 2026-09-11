@@ -39,7 +39,6 @@ func preventCSRF(trustedOrigin string, renderer *templates.Renderer) func(http.H
 				return
 			}
 			untrustedOrigin := r.Header.Get("Origin")
-			fmt.Printf("--> untrusted origin: %s\n", untrustedOrigin)
 			if len(untrustedOrigin) > 0 {
 				if untrustedOrigin != appOrigin {
 					httpx.RespondWithErrorPage(rw, renderer, http.StatusForbidden, "Unhandled Error", fmt.Sprint("Untrusted Origin!"))
@@ -63,23 +62,6 @@ func noSniffContentTypeHeader(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		rw.Header().Set("X-Content-Type-Options", "nosniff")
 		handler.ServeHTTP(rw, r)
-	})
-}
-
-func permissiveCORS(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(responseWriter http.ResponseWriter, request *http.Request) {
-		if origin := request.Header.Get("Origin"); origin != "" {
-			responseWriter.Header().Set("Access-Control-Allow-Origin", origin)
-			responseWriter.Header().Set("Access-Control-Allow-Credentials", "true")
-			responseWriter.Header().Set("Vary", "Origin")
-		}
-		if request.Method == http.MethodOptions {
-			responseWriter.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-			responseWriter.Header().Set("Access-Control-Allow-Headers", request.Header.Get("Access-Control-Request-Headers"))
-			responseWriter.WriteHeader(http.StatusNoContent)
-			return
-		}
-		next.ServeHTTP(responseWriter, request)
 	})
 }
 
@@ -294,10 +276,12 @@ func contentSecurityPolicy(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		nonce := httpx.CSPNonce(r.Context())
 		csp := fmt.Sprintf(
-			"default-src 'self'; script-src 'self' 'nonce-%s'; style-src 'self'; img-src 'self' data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'",
+			"default-src 'self'; script-src 'self' 'nonce-%s'; style-src 'self'; img-src 'self' data:; frame-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'",
 			nonce,
 		)
 		rw.Header().Set("Content-Security-Policy", csp)
+		rw.Header().Set("X-Frame-Options", "SAMEORIGIN")
+		rw.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		next.ServeHTTP(rw, r)
 	})
 }
