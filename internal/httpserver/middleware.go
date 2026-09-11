@@ -289,3 +289,15 @@ func extractOriginFromUrl(rawUrl string) (string, error) {
 	}
 	return fmt.Sprintf("%s://%s", urlVal.Scheme, urlVal.Host), nil
 }
+
+func contentSecurityPolicy(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		nonce := httpx.CSPNonce(r.Context())
+		csp := fmt.Sprintf(
+			"default-src 'self'; script-src 'self' 'nonce-%s'; style-src 'self'; img-src 'self' data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'",
+			nonce,
+		)
+		rw.Header().Set("Content-Security-Policy", csp)
+		next.ServeHTTP(rw, r)
+	})
+}

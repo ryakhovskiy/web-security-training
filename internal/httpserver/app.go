@@ -239,6 +239,7 @@ func New(database *sql.DB, logger *logging.Logger, options Options) (*Applicatio
 		mainMux,
 		noSniffContentTypeHeader,
 		cspNonce,
+		contentSecurityPolicy,
 		recoverPanics(logger, renderer),
 	)
 	return &Application{Handler: handler, publicRoot: publicRoot}, nil
@@ -258,5 +259,12 @@ func newStaticHandler(publicRoot *os.Root) http.Handler {
 			return
 		}
 		fileServer.ServeHTTP(responseWriter, request)
+	})
+}
+
+func setContentSecurityPolicyHeader(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		rw.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'")
+		next.ServeHTTP(rw, r)
 	})
 }
