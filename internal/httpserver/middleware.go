@@ -39,6 +39,7 @@ func preventCSRF(trustedOrigin string, renderer *templates.Renderer) func(http.H
 				return
 			}
 			untrustedOrigin := r.Header.Get("Origin")
+			fmt.Printf("--> untrusted origin: %s\n", untrustedOrigin)
 			if len(untrustedOrigin) > 0 {
 				if untrustedOrigin != appOrigin {
 					httpx.RespondWithErrorPage(rw, renderer, http.StatusForbidden, "Unhandled Error", fmt.Sprint("Untrusted Origin!"))
@@ -53,6 +54,7 @@ func preventCSRF(trustedOrigin string, renderer *templates.Renderer) func(http.H
 				}
 			}
 			next.ServeHTTP(rw, r)
+			return
 		})
 	}
 }
