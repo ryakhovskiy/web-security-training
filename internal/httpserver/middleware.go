@@ -58,13 +58,6 @@ func preventCSRF(trustedOrigin string, renderer *templates.Renderer) func(http.H
 	}
 }
 
-func noSniffContentTypeHeader(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-		rw.Header().Set("X-Content-Type-Options", "nosniff")
-		handler.ServeHTTP(rw, r)
-	})
-}
-
 func cspNonce(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(responseWriter http.ResponseWriter, request *http.Request) {
 		nonceBytes := make([]byte, 16)
@@ -272,7 +265,7 @@ func extractOriginFromUrl(rawUrl string) (string, error) {
 	return fmt.Sprintf("%s://%s", urlVal.Scheme, urlVal.Host), nil
 }
 
-func contentSecurityPolicy(next http.Handler) http.Handler {
+func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		nonce := httpx.CSPNonce(r.Context())
 		csp := fmt.Sprintf(
@@ -280,8 +273,23 @@ func contentSecurityPolicy(next http.Handler) http.Handler {
 			nonce,
 		)
 		rw.Header().Set("Content-Security-Policy", csp)
+		rw.Header().Set("X-Content-Type-Options", "nosniff")
 		rw.Header().Set("X-Frame-Options", "SAMEORIGIN")
 		rw.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		rw.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
+		rw.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
+		rw.Header().Set("Origin-Agent-Cluster", "?1")
+		rw.Header().Set("X-DNS-Prefetch-Control", "off")
+		rw.Header().Set("X-Download-Options", "noopen")
+		rw.Header().Set("X-Permitted-Cross-Domain-Policies", "none")
+		rw.Header().Set("X-XSS-Protection", "0")
+		next.ServeHTTP(rw, r)
+	})
+}
+
+func crossOriginResource(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		rw.Header().Set("Cross-Origin-Resource-Policy", "cross-origin")
 		next.ServeHTTP(rw, r)
 	})
 }
