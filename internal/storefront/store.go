@@ -64,6 +64,7 @@ func (store *Store) ListAllProducts(ctx context.Context) ([]Product, error) {
 	rows, err := store.database.QueryContext(ctx, `
 		SELECT id, name, description, image_path, price_cents, cost_cents, inventory_count, is_active, created_at
 		FROM products
+		WHERE is_active = 1
 		ORDER BY id
 	`)
 	if err != nil {
