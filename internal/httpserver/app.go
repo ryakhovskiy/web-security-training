@@ -2,7 +2,6 @@ package httpserver
 
 import (
 	"context"
-	"crypto/rand"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -50,6 +49,7 @@ type Options struct {
 	FixtureDirectory        string
 	TemplateDirectory       string
 	PublicDirectory         string
+	DownloadSigningKey      [32]byte
 }
 
 type Application struct {
@@ -101,9 +101,10 @@ func New(database *sql.DB, logger *logging.Logger, options Options) (*Applicatio
 		unboundedPublicProductResults,
 	)
 	var downloadSigningKey [32]byte
-	if _, err := rand.Read(downloadSigningKey[:]); err != nil {
+	downloadSigningKey = options.DownloadSigningKey
+	/*if _, err := rand.Read(downloadSigningKey[:]); err != nil {
 		return nil, fmt.Errorf("generate download signing key: %w", err)
-	}
+	}*/
 	uploadHandler := uploads.NewHandler(
 		accountStore,
 		uploadStore,

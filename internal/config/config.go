@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"net/url"
 	"os"
@@ -11,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 const (
@@ -36,6 +39,7 @@ type Config struct {
 	MaxPublicProductResults    int
 	ActiveEncryptionKeyVersion string
 	EncryptionKeys             map[string][32]byte
+	DownloadSigningKey         [32]byte
 }
 
 type AttackerLabConfig struct {
@@ -43,11 +47,11 @@ type AttackerLabConfig struct {
 }
 
 func Load(workingDirectory string) (Config, error) {
-	return Parse(processEnvironment(), workingDirectory)
+	return Parse(processEnvironment(workingDirectory), workingDirectory)
 }
 
 func LoadAttackerLab(workingDirectory string) (AttackerLabConfig, error) {
-	return ParseAttackerLab(processEnvironment())
+	return ParseAttackerLab(processEnvironment(workingDirectory))
 }
 
 func Parse(environment map[string]string, workingDirectory string) (Config, error) {
@@ -78,8 +82,18 @@ func Parse(environment map[string]string, workingDirectory string) (Config, erro
 		databasePath = filepath.Join(workingDirectory, "data", defaultDatabaseFilename)
 	}
 
+	downloadSigningKeyStr := environment["DOWNLOAD_SIGNING_KEY"]
+	downloadSigningKey, err := parseEncryptionKey(downloadSigningKeyStr, "DOWNLOAD_SIGNING_KEY")
+	if nil != err {
+		return Config{}, err
+	}
+	pawPalApiKey, err := parseRequiredEnvironmentVariable(environment, "PAWPAL_API_KEY")
+	if err != nil {
+		return Config{}, err
+	}
+
 	return Config{
-		PawPalAPIKey:               "bs_test_pawpal_starter_key",
+		PawPalAPIKey:               pawPalApiKey,
 		AppOrigin:                  appOrigin,
 		Port:                       port,
 		DatabasePath:               databasePath,
@@ -89,6 +103,7 @@ func Parse(environment map[string]string, workingDirectory string) (Config, erro
 		MaxPublicProductResults:    MaxPublicProductResults,
 		ActiveEncryptionKeyVersion: activeEncryptionKeyVersion,
 		EncryptionKeys:             encryptionKeys,
+		DownloadSigningKey:         downloadSigningKey,
 	}, nil
 }
 
@@ -103,8 +118,12 @@ func ParseAttackerLab(environment map[string]string) (AttackerLabConfig, error) 
 	return AttackerLabConfig{Port: port}, nil
 }
 
-func processEnvironment() map[string]string {
-	environment := make(map[string]string)
+func processEnvironment(workingDirectory string) map[string]string {
+	environment, err := godotenv.Read(filepath.Join(workingDirectory, ".env"))
+	if nil != err {
+		log.Printf("Cannot read environment variables: %s", err)
+	}
+	//overwrite from inline
 	for _, entry := range os.Environ() {
 		name, value, found := strings.Cut(entry, "=")
 		if found {
@@ -219,4 +238,12 @@ func normalizeEncryptionVersion(version string) (string, error) {
 		}
 	}
 	return normalized, nil
+}
+
+func parseRequiredEnvironmentVariable(environment map[string]string, name string) (string, error) {
+	value := environment[name]
+	if value == "" {
+		return "", fmt.Errorf("missing required environment variable: %s", name)
+	}
+	return value, nil
 }

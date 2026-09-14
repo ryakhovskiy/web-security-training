@@ -6,6 +6,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"time"
 )
@@ -15,6 +16,8 @@ type Logger struct {
 	file  *os.File
 	now   func() time.Time
 }
+
+var sensitiveKeys = []string{"sessionId", "resetToken", "resetLink", "secret", "adminNotes", "storagePath"}
 
 func Open(filePath string) (*Logger, error) {
 	if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
@@ -35,6 +38,11 @@ func (logger *Logger) Event(eventName string, fields map[string]any) error {
 	record := map[string]any{
 		"timestamp": logger.now().UTC().Format("2006-01-02T15:04:05.000Z"),
 		"event":     eventName,
+	}
+	for k, _ := range fields {
+		if slices.Contains(sensitiveKeys, k) {
+			fields[k] = "[REDACTED]"
+		}
 	}
 	maps.Copy(record, fields)
 
