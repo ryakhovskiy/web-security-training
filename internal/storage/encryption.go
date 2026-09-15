@@ -14,7 +14,6 @@ type EncryptedPayload struct {
 }
 
 func Encrypt(plaintext []byte, key [32]byte) (EncryptedPayload, error) {
-
 	block, err := aes.NewCipher(key[:])
 	if err != nil {
 		return EncryptedPayload{}, err

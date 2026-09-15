@@ -225,6 +225,20 @@ func (handler *authHandler) RecoverMFA(responseWriter http.ResponseWriter, reque
 		}
 		return
 	}
+
+	if passwords.NeedsRehash(user.PasswordHash) {
+		passwordHash, err := passwords.Hash(password)
+		if err != nil {
+			handler.internalError(responseWriter, request, fmt.Errorf("Something went wrong"))
+			return
+		}
+		err = handler.accounts.UpdatePasswordHash(request.Context(), user.ID, passwordHash)
+		if nil != err {
+			handler.internalError(responseWriter, request, fmt.Errorf("Something went wrong"))
+			return
+		}
+	}
+
 	consumed, err := handler.mfa.ConsumeBackupCode(request.Context(), user.ID, backupCode)
 	if err != nil {
 		handler.internalError(responseWriter, request, err)
@@ -286,14 +300,6 @@ func (handler *authHandler) RequestPasswordReset(responseWriter http.ResponseWri
 		return
 	}
 	if !found {
-		/*handler.logAuthenticationEvent(request, "password_reset_request", map[string]any{
-			"email":         email,
-			"success":       false,
-			"failureReason": "email not found",
-		})
-		if err := handler.renderPasswordResetRequest(responseWriter, http.StatusNotFound, false, "No account exists for that email.", ""); err != nil {
-			handler.internalError(responseWriter, request, err)
-		}*/
 		if err := handler.renderPasswordResetRequest(responseWriter, http.StatusOK, true, "", "/password-reset/"); err != nil {
 			handler.internalError(responseWriter, request, err)
 		}

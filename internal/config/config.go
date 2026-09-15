@@ -73,7 +73,7 @@ func Parse(environment map[string]string, workingDirectory string) (Config, erro
 		return Config{}, err
 	}
 
-	activeEncryptionKeyVersion, encryptionKeys, err := parseOptionalEncryptionKeys(environment)
+	activeEncryptionKeyVersion, encryptionKeys, err := parseEncryptionKeys(environment)
 	if err != nil {
 		return Config{}, err
 	}
@@ -93,7 +93,7 @@ func Parse(environment map[string]string, workingDirectory string) (Config, erro
 		return Config{}, err
 	}
 
-	trustedProxyHopsStr := environment["TRUST_PROXY_HOPS"]
+	trustedProxyHopsStr := valueOrDefault(environment, "TRUST_PROXY_HOPS", "0")
 	trustedProxyHops, err := parseNonNegativeInteger(trustedProxyHopsStr, "TRUST_PROXY_HOPS")
 	if nil != err {
 		return Config{}, err

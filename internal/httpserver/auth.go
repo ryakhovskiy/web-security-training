@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"unicode/utf8"
@@ -93,6 +94,19 @@ func (handler *authHandler) Login(responseWriter http.ResponseWriter, request *h
 			handler.internalError(responseWriter, request, err)
 		}
 		return
+	}
+
+	if passwords.NeedsRehash(user.PasswordHash) {
+		passwordHash, err := passwords.Hash(password)
+		if err != nil {
+			handler.internalError(responseWriter, request, fmt.Errorf("Something went wrong"))
+			return
+		}
+		err = handler.accounts.UpdatePasswordHash(request.Context(), user.ID, passwordHash)
+		if nil != err {
+			handler.internalError(responseWriter, request, fmt.Errorf("Something went wrong"))
+			return
+		}
 	}
 
 	challengeToken := totpLoginChallengeToken(request)
