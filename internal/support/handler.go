@@ -143,6 +143,10 @@ func (handler *Handler) ImportTaxDocuments(responseWriter http.ResponseWriter, r
 		handler.renderArchivePage(responseWriter, request, http.StatusBadRequest, current, false, 0, "Choose a ZIP archive.")
 		return
 	}
+	if len(contents) > int(handler.maxUploadBytes) {
+		handler.errorPage(responseWriter, http.StatusRequestEntityTooLarge, "Content Too Large", "The submitted request exceeds the allowed size.")
+		return
+	}
 	extractedArchive, err := uploads.ExtractTaxDocumentArchive(handler.encryptionKeyring, contents, handler.bulkImportDirectory)
 	if err != nil {
 		if archiveError, ok := errors.AsType[*uploads.ArchiveImportError](err); ok {
@@ -232,6 +236,9 @@ func (handler *Handler) readArchive(responseWriter http.ResponseWriter, request 
 	files := request.MultipartForm.File["archive"]
 	if len(files) == 0 {
 		return nil, errors.New("missing archive upload")
+	}
+	if len(files) > 1 {
+		return nil, errors.New("Only one document per upload is supported")
 	}
 	file, err := files[0].Open()
 	if err != nil {

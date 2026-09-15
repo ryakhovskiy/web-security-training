@@ -64,6 +64,10 @@ func (handler *Handler) Upload(responseWriter http.ResponseWriter, request *http
 		handler.renderTaxExemption(responseWriter, request, http.StatusBadRequest, current, "Choose a PDF, JPEG, PNG, or WebP file to upload.")
 		return
 	}
+	if len(contents) > int(handler.maxUploadBytes) {
+		handler.errorPage(responseWriter, http.StatusRequestEntityTooLarge, "Content Too Large", "The submitted request exceeds the allowed size.")
+		return
+	}
 	document, valid, err := StoreDocument(contents, handler.uploadDirectory, handler.encryptionKeyring)
 	if err != nil {
 		handler.internalError(responseWriter, request, err)
@@ -168,6 +172,9 @@ func (handler *Handler) readUpload(responseWriter http.ResponseWriter, request *
 	files := request.MultipartForm.File["document"]
 	if len(files) == 0 {
 		return nil, "", errors.New("missing document upload")
+	}
+	if len(files) > 1 {
+		return nil, "", errors.New("Only one document per upload is supported")
 	}
 	file, err := files[0].Open()
 	if err != nil {

@@ -97,9 +97,20 @@ func LoadShedder(_ int, _ int) func(http.Handler) http.Handler {
 	}
 }
 
-func SearchThrottle(_ *templates.Renderer) func(http.Handler) http.Handler {
+func SearchThrottle(renderer *templates.Renderer) func(http.Handler) http.Handler {
+	opts := rateLimitOptions{
+		window:  time.Second,
+		maximum: 5,
+		key:     constantKey,
+		onLimit: func(w http.ResponseWriter, _ *http.Request, _ rateLimitState) {
+			if err := httpx.RespondWithErrorPage(w, renderer, http.StatusTooManyRequests, "Search Is Busy", "Try again shortly."); err != nil {
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			}
+		},
+	}
+	rateLimiter := fixedWindowRateLimiter(opts)
 	return func(next http.Handler) http.Handler {
-		return next
+		return rateLimiter(next)
 	}
 }
 
@@ -210,8 +221,18 @@ func (limiter *fixedWindowLimiter) reject(responseWriter http.ResponseWriter, re
 
 func fixedWindowRateLimiter(options rateLimitOptions) middleware {
 	validateRateLimitOptions(options)
+	rateLimiter := newFixedWindowLimiter(options)
+
 	return func(next http.Handler) http.Handler {
-		return next
+		return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			state, consumed := rateLimiter.consume(r)
+			if consumed {
+				rateLimiter.reject(rw, r, state)
+				return
+			}
+			setRateLimitHeaders(rw, state)
+			next.ServeHTTP(rw, r)
+		})
 	}
 }
 
@@ -292,4 +313,8 @@ func crossOriginResource(next http.Handler) http.Handler {
 		rw.Header().Set("Cross-Origin-Resource-Policy", "cross-origin")
 		next.ServeHTTP(rw, r)
 	})
+}
+
+func constantKey(request *http.Request) string {
+	return "constant-key"
 }

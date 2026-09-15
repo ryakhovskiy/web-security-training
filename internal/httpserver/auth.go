@@ -20,6 +20,7 @@ import (
 
 const (
 	minimumPasswordLength = 8
+	maxBodyBytes          = 32 * 1024
 )
 
 type authPage struct {
@@ -227,8 +228,9 @@ func (handler *authHandler) Signup(responseWriter http.ResponseWriter, request *
 
 func parseForm(_ int64, renderer *templates.Renderer) middleware {
 	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(responseWriter http.ResponseWriter, request *http.Request) {
-			if err := request.ParseForm(); err != nil {
+		return http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			r.Body = http.MaxBytesReader(rw, r.Body, maxBodyBytes)
+			if err := r.ParseForm(); err != nil {
 				statusCode := http.StatusBadRequest
 				heading := "Invalid Request"
 				message := "The submitted form is invalid."
@@ -237,12 +239,12 @@ func parseForm(_ int64, renderer *templates.Renderer) middleware {
 					heading = "Content Too Large"
 					message = "The request body is too large."
 				}
-				if renderErr := httpx.RespondWithErrorPage(responseWriter, renderer, statusCode, heading, message); renderErr != nil {
-					http.Error(responseWriter, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				if renderErr := httpx.RespondWithErrorPage(rw, renderer, statusCode, heading, message); renderErr != nil {
+					http.Error(rw, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				}
 				return
 			}
-			next.ServeHTTP(responseWriter, request)
+			next.ServeHTTP(rw, r)
 		})
 	}
 }
