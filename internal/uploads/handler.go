@@ -105,7 +105,7 @@ func (handler *Handler) Download(responseWriter http.ResponseWriter, request *ht
 		handler.internalError(responseWriter, request, err)
 		return
 	}
-	if !found || !(current.User.ID == file.UserID || current.User.Role != "admin" || current.User.Role != "support") {
+	if !found || !(current.User.ID == file.UserID || current.User.Role == "admin" || current.User.Role == "support") {
 		handler.fileNotFound(responseWriter)
 		return
 	}
