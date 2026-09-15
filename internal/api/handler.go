@@ -164,6 +164,19 @@ func (handler *Handler) WarehouseOrders(responseWriter http.ResponseWriter, requ
 		httpx.RespondWithError(responseWriter, http.StatusForbidden, "Forbidden")
 		return
 	}
+
+	quota, err := handler.apiStore.ConsumeQuota(request.Context(), key.ID)
+	if nil != err {
+		httpx.RespondWithJSON(responseWriter, http.StatusTooManyRequests, quotaExhaustedResponse{Error: "Daily API-key quota exhausted"})
+		return
+	}
+	if !quota.Allowed {
+		RespondWithQuotaExhausted(responseWriter, quota)
+		return
+	}
+
+	SetQuotaHeaders(responseWriter, quota)
+	quotaResponse := ToQuotaResponse(quota)
 	orders, err := handler.orderStore.ListAll(request.Context())
 	if err != nil {
 		handler.internalError(responseWriter, request, err)
@@ -178,6 +191,7 @@ func (handler *Handler) WarehouseOrders(responseWriter http.ResponseWriter, requ
 	httpx.RespondWithJSON(responseWriter, http.StatusOK, map[string]any{
 		"integration": "Warehouse Fulfillment Integration",
 		"orders":      responses,
+		"quota":       quotaResponse,
 	})
 }
 
