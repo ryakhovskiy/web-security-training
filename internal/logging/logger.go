@@ -17,7 +17,7 @@ type Logger struct {
 	now   func() time.Time
 }
 
-var sensitiveKeys = []string{"sessionId", "resetToken", "resetLink", "secret", "adminNotes", "storagePath"}
+var sensitiveKeys = []string{"sessionId", "originalName", "resetToken", "resetLink", "secret", "adminNotes", "storagePath", "shippingPostalCode", "shippingRegion", "shippingName", "shippingAddress", "shippingCity", "email", "filename"}
 
 func Open(filePath string) (*Logger, error) {
 	if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
